@@ -1,0 +1,14 @@
+{
+  "name": "pubg-esports-bot",
+  "version": "1.0.0",
+  "description": "Profesyonel PUBG E-Spor ve Çoklu Sunucu Yönetim Botu",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.1.2",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  }
+}
