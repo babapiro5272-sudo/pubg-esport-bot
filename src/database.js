@@ -3,13 +3,13 @@ const path = require('path');
 
 const db = new Database(path.join(__dirname, '../database.sqlite'));
 
-// Tabloları Otomatik Başlat
 db.exec(`
   CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id TEXT PRIMARY KEY,
     auth_roles TEXT,
     mod_log TEXT,
     join_leave_log TEXT,
+    welcome_channel TEXT,
     ban_log TEXT,
     mute_log TEXT,
     warn_log TEXT,
@@ -42,6 +42,11 @@ db.exec(`
     PRIMARY KEY (guild_id, user_id)
   );
 `);
+
+// Eski veritabanı varsa sütunu otomatik ekle
+try {
+  db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_channel TEXT;");
+} catch (e) {}
 
 module.exports = {
   getGuild: (guildId) => db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId) || {},

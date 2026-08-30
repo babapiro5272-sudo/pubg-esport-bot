@@ -23,8 +23,10 @@ const commandsList = [
   require('./commands/admin'),
   require('./commands/basvuru'),
   require('./commands/moderasyon'),
-  require('./commands/duyuru')
+  require('./commands/duyuru'),
+  require('./commands/girisCikis') // Yeni Giriş-Çıkış Komutu
 ];
+
 
 for (const cmd of commandsList) {
   client.commands.set(cmd.data.name, cmd);
@@ -37,7 +39,6 @@ require('./events/memberLog')(client);
 client.once('ready', async () => {
   console.log(`🚀 ${client.user.tag} aktif edildi!`);
 
-  // Global Slash Komutlarını Discord'a Tanıt
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   try {
     console.log('Slash komutları kaydediliyor...');
@@ -50,7 +51,7 @@ client.once('ready', async () => {
     console.error('Komut kayıt hatası:', err);
   }
 
-  // 3 Günlük Uyarı Otomatik Silme Motoru (Her 10 dakikada bir kontrol eder)
+  // 3 Günlük Uyarı Otomatik Silme Motoru
   setInterval(() => {
     const now = Date.now();
     const expiredWarns = db.prepare('SELECT * FROM warnings WHERE expire_date <= ?').all(now);
@@ -81,11 +82,11 @@ client.on('interactionCreate', async (interaction) => {
 
   // 2. BUTON ETKİLEŞİMLERİ
   if (interaction.isButton()) {
-    // A. Başvuru Yap Butonuna Basıldığında Modal Aç
+    // Formu Aç
     if (interaction.customId === 'btn_open_apply_modal') {
       const modal = new ModalBuilder()
         .setCustomId('modal_apply_form')
-        .setTitle('PUBG E-Spor Başvuru Formu');
+        .setTitle('PUBG E-Spor Takım Başvurusu');
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_name').setLabel('İsminiz ve Soyisminiz').setStyle(TextInputStyle.Short).setRequired(true)),
@@ -97,20 +98,35 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // B. Başvuruyu Kabul Et
+    // Başvuruyu Kabul Et
     if (interaction.customId.startsWith('btn_apply_accept_')) {
       if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_accept_', '');
       const config = getGuild(interaction.guildId);
+      const guildIcon = interaction.guild.iconURL({ dynamic: true });
 
       const member = await interaction.guild.members.fetch(targetUserId).catch(() => null);
       if (member && config.apply_success_role) {
         await member.roles.add(config.apply_success_role).catch(() => {});
       }
 
+      // OYUNCUYA GİDEN ESTETİK KABUL DM'İ
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
-        await targetUser.send(`🎉 Tebrikler! **${interaction.guild.name}** PUBG E-Spor takımına başvurunuz **kabul edildi!** Rolünüz tanımlandı.`).catch(() => {});
+        const acceptDmEmbed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: guildIcon })
+          .setTitle('🎉 Tebrikler! Başvurunuz Onaylandı')
+          .setDescription(`Yapılan değerlendirmeler sonucunda **${interaction.guild.name}** PUBG E-Spor kadromuza kabul edildiniz!`)
+          .setColor('#57F287')
+          .addFields(
+            { name: '🎖️ Kazanılan Rol', value: config.apply_success_role ? `<@&${config.apply_success_role}>` : 'Oyuncu Rolü', inline: true },
+            { name: '🛡️ Onaylayan Yetkili', value: `${interaction.user.tag}`, inline: true },
+            { name: '📌 Sıradaki Adım', value: '>>> Sunucudaki takım antrenman ve scrim duyurularını takip etmeyi unutmayın. Başarılar dileriz!' }
+          )
+          .setFooter({ text: 'PUBG E-Sports Team Recruitment' })
+          .setTimestamp();
+
+        await targetUser.send({ embeds: [acceptDmEmbed] }).catch(() => {});
       }
 
       await interaction.update({
@@ -120,14 +136,14 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // C. Başvuruyu Reddet (Sebep Soran Modalı Göster)
+    // Başvuruyu Reddet
     if (interaction.customId.startsWith('btn_apply_reject_')) {
       if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_reject_', '');
 
       const modal = new ModalBuilder()
         .setCustomId(`modal_reject_reason_${targetUserId}`)
-        .setTitle('Başvuru Reddetme Nedeni');
+        .setTitle('Başvuru Reddetme Sebebi');
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(
@@ -144,7 +160,7 @@ client.on('interactionCreate', async (interaction) => {
 
   // 3. MODAL FORMLARI YÖNETİCİSİ
   if (interaction.isModalSubmit()) {
-    // Form Gönderildiğinde Log Kanalına Düşür
+    // Form Doldurulduğunda
     if (interaction.customId === 'modal_apply_form') {
       const config = getGuild(interaction.guildId);
       const logChannelId = config.apply_log_channel;
@@ -162,16 +178,18 @@ client.on('interactionCreate', async (interaction) => {
       if (!logChannel) return interaction.reply({ content: '❌ Log kanalı bulunamadı.', ephemeral: true });
 
       const embed = new EmbedBuilder()
-        .setTitle('📋 Yeni PUBG E-Spor Başvurusu')
+        .setAuthor({ name: 'Yeni Oyuncu Başvuru Formu', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTitle(`📋 ${interaction.user.tag} Başvurusu`)
         .setColor('#FFA500')
         .addFields(
-          { name: 'Başvuran Üye', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
-          { name: 'İsim Soyisim', value: name, inline: true },
-          { name: 'Yaş', value: age, inline: true },
-          { name: 'PUBG ID', value: pubgId, inline: true },
-          { name: 'Aim Seviyesi', value: aim, inline: true },
-          { name: 'Kuralları Kabul Ediyor Mu?', value: rules, inline: true }
+          { name: '👤 Başvuran', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+          { name: '📛 İsim Soyisim', value: `\`${name}\``, inline: true },
+          { name: '🎂 Yaş', value: `\`${age}\``, inline: true },
+          { name: '🎮 PUBG ID', value: `\`${pubgId}\``, inline: true },
+          { name: '🎯 Aim Puanı', value: `\`${aim}\``, inline: true },
+          { name: '📜 Kural Onayı', value: `\`${rules}\``, inline: true }
         )
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
         .setTimestamp();
 
       const row = new ActionRowBuilder().addComponents(
@@ -180,7 +198,7 @@ client.on('interactionCreate', async (interaction) => {
       );
 
       await logChannel.send({
-        content: tagRoleId ? `<@&${tagRoleId}> Yeni bir başvuru geldi!` : undefined,
+        content: tagRoleId ? `<@&${tagRoleId}> Yeni başvuru geldi!` : undefined,
         embeds: [embed],
         components: [row]
       });
@@ -188,14 +206,28 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply({ content: '✅ Başvurunuz başarıyla yetkililere iletildi.', ephemeral: true });
     }
 
-    // Reddetme Sebebi Yazıldığında
+    // Reddetme Nedeni Yazıldığında
     if (interaction.customId.startsWith('modal_reject_reason_')) {
       const targetUserId = interaction.customId.replace('modal_reject_reason_', '');
       const reason = interaction.fields.getTextInputValue('reject_reason');
+      const guildIcon = interaction.guild.iconURL({ dynamic: true });
 
+      // OYUNCUYA GİDEN ESTETİK RET DM'İ
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
-        await targetUser.send(`❌ **${interaction.guild.name}** PUBG E-Spor başvurunuz **reddedildi.**\n**Sebep:** ${reason}`).catch(() => {});
+        const rejectDmEmbed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: guildIcon })
+          .setTitle('❌ Başvuru Durumu: Reddedildi')
+          .setDescription(`**${interaction.guild.name}** PUBG E-Spor takımına yapmış olduğunuz başvuru ne yazık ki olumsuz sonuçlanmıştır.`)
+          .setColor('#ED4245')
+          .addFields(
+            { name: '📝 Reddedilme Gerekçesi', value: `>>> ${reason}` },
+            { name: '💡 Tavsiye', value: 'Kendinizi geliştirip sonraki alım dönemlerimizde tekrar başvurabilirsiniz.' }
+          )
+          .setFooter({ text: 'PUBG E-Sports Team Recruitment' })
+          .setTimestamp();
+
+        await targetUser.send({ embeds: [rejectDmEmbed] }).catch(() => {});
       }
 
       await interaction.update({
