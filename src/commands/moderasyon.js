@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { setGuild, getGuild, db } = require('../database');
-const { checkAuth, sendLog } = require('../utils/helpers');
+const { checkAdmin, checkMod, sendLog } = require('../utils/helpers');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('Moderasyon, ceza ve log yönetim komutları.')
     .addSubcommand(s => s
       .setName('log_ayarla')
-      .setDescription('Log kanallarını belirler.')
+      .setDescription('[Admin] Log kanallarını belirler.')
       .addStringOption(o => o.setName('tur').setDescription('Log Türü').setRequired(true).addChoices(
         { name: 'Genel Moderasyon Log', value: 'mod_log' },
         { name: 'Giriş-Çıkış Log', value: 'join_leave_log' },
@@ -20,7 +20,7 @@ module.exports = {
     )
     .addSubcommand(s => s
       .setName('uyari_ayarla')
-      .setDescription('Uyarı kademeleri rollerini ve timeout sürelerini ayarlar.')
+      .setDescription('[Admin] Uyarı kademeleri rollerini ve timeout sürelerini ayarlar.')
       .addRoleOption(o => o.setName('1_uyari_rol').setDescription('1. Uyarıda verilecek rol').setRequired(true))
       .addIntegerOption(o => o.setName('1_to').setDescription('1. Uyarı timeout süresi (dakika)').setRequired(true))
       .addRoleOption(o => o.setName('2_uyari_rol').setDescription('2. Uyarıda verilecek rol').setRequired(true))
@@ -30,128 +30,137 @@ module.exports = {
     )
     .addSubcommand(s => s
       .setName('uyari_ver')
-      .setDescription('Kullanıcıya uyarı ekler.')
+      .setDescription('[Mod & Admin] Kullanıcıya uyarı ekler.')
       .addUserOption(o => o.setName('kullanici').setDescription('Uyarılacak üye').setRequired(true))
       .addStringOption(o => o.setName('sebep').setDescription('Uyarı sebebi'))
     )
     .addSubcommand(s => s
       .setName('uyari_al')
-      .setDescription('Kullanıcıdan belirtilen sayıda uyarı siler.')
+      .setDescription('[Mod & Admin] Kullanıcıdan belirtilen sayıda uyarı siler.')
       .addUserOption(o => o.setName('kullanici').setDescription('Hedef üye').setRequired(true))
       .addIntegerOption(o => o.setName('sayi').setDescription('Silinecek uyarı adedi').setRequired(true))
       .addStringOption(o => o.setName('sebep').setDescription('Uyarı silme gerekçesi'))
     )
     .addSubcommand(s => s
       .setName('uyari_liste')
-      .setDescription('Sunucudaki aktif uyarısı olan kullanıcıları listeler.')
+      .setDescription('[Mod & Admin] Sunucudaki aktif uyarısı olan kullanıcıları listeler.')
     )
     .addSubcommand(s => s
       .setName('ban')
-      .setDescription('Kullanıcıyı sunucudan yasaklar.')
+      .setDescription('[Mod & Admin] Kullanıcıyı sunucudan yasaklar.')
       .addUserOption(o => o.setName('kullanici').setDescription('Yasaklanacak üye').setRequired(true))
       .addStringOption(o => o.setName('sebep').setDescription('Yasaklama sebebi').setRequired(true))
       .addAttachmentOption(o => o.setName('kanit').setDescription('Varsa resim kanıtı'))
     )
     .addSubcommand(s => s
       .setName('idban')
-      .setDescription('Sunucuda bulunmayan bir ID\'yi yasaklar.')
+      .setDescription('[Mod & Admin] Sunucuda bulunmayan bir ID\'yi yasaklar.')
       .addStringOption(o => o.setName('id').setDescription('Kullanıcı ID').setRequired(true))
       .addStringOption(o => o.setName('sebep').setDescription('Sebep').setRequired(true))
       .addAttachmentOption(o => o.setName('kanit').setDescription('Varsa resim kanıtı'))
     )
     .addSubcommand(s => s
       .setName('unban')
-      .setDescription('Yasaklanmış kullanıcının yasağını kaldırır.')
+      .setDescription('[Mod & Admin] Yasaklanmış kullanıcının yasağını kaldırır.')
       .addStringOption(o => o.setName('id').setDescription('Kullanıcı ID').setRequired(true))
     )
     .addSubcommand(s => s
       .setName('banbilgi')
-      .setDescription('Yasaklanmış bir ID hakkında veritabanındaki bilgileri gösterir.')
+      .setDescription('[Mod & Admin] Yasaklanmış bir ID hakkında bilgileri gösterir.')
       .addStringOption(o => o.setName('id').setDescription('Kullanıcı ID').setRequired(true))
     )
     .addSubcommand(s => s
       .setName('mute')
-      .setDescription('Kullanıcıya zamanaşımı (timeout) uygular.')
+      .setDescription('[Mod & Admin] Kullanıcıya zamanaşımı (timeout) uygular.')
       .addUserOption(o => o.setName('kullanici').setDescription('Mute atılacak üye').setRequired(true))
       .addIntegerOption(o => o.setName('sure').setDescription('Dakika cinsinden süre').setRequired(true))
       .addStringOption(o => o.setName('sebep').setDescription('Susturma sebebi').setRequired(true))
     )
     .addSubcommand(s => s
       .setName('unmute')
-      .setDescription('Kullanıcının zamanaşımını kaldırır.')
+      .setDescription('[Mod & Admin] Kullanıcının zamanaşımını kaldırır.')
       .addUserOption(o => o.setName('kullanici').setDescription('Hedef üye').setRequired(true))
     ),
 
   async execute(interaction) {
     const guildIcon = interaction.guild.iconURL({ dynamic: true });
-
-    if (!checkAuth(interaction)) {
-      const noAuthEmbed = new EmbedBuilder()
-        .setAuthor({ name: `${interaction.guild.name} • Erişim Reddedildi`, iconURL: guildIcon })
-        .setDescription('❌ Bu moderasyon komutunu kullanmak için gerekli yetkiye sahip değilsiniz.')
-        .setColor('#ED4245');
-      return interaction.reply({ embeds: [noAuthEmbed], ephemeral: true });
-    }
-
     const sub = interaction.options.getSubcommand();
     const config = getGuild(interaction.guildId);
 
-    if (sub === 'log_ayarla') {
-      const type = interaction.options.getString('tur');
-      const channel = interaction.options.getChannel('kanal');
-      setGuild(interaction.guildId, type, channel.id);
+    if (sub === 'log_ayarla' || sub === 'uyari_ayarla') {
+      if (!checkAdmin(interaction)) {
+        const noAdminEmbed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • Erişim Reddedildi`, iconURL: guildIcon })
+          .setDescription('❌ Bu komutu yalnızca **Admin** yetkisine sahip kişiler kullanabilir. Moderatörlerin log ve sistem ayarlarını değiştirme yetkisi yoktur.')
+          .setColor('#ED4245');
+        return interaction.reply({ embeds: [noAdminEmbed], ephemeral: true });
+      }
 
-      const typeLabels = {
-        mod_log: '🛡️ Genel Moderasyon Logu',
-        join_leave_log: '📥 Giriş-Çıkış Logu',
-        ban_log: '🔨 Ban / Yasaklama Logu',
-        mute_log: '🔇 Mute / Susturma Logu',
-        warn_log: '⚠️ Uyarı Logu'
-      };
+      if (sub === 'log_ayarla') {
+        const type = interaction.options.getString('tur');
+        const channel = interaction.options.getChannel('kanal');
+        setGuild(interaction.guildId, type, channel.id);
 
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${interaction.guild.name} • Yapılandırma`, iconURL: guildIcon })
-        .setTitle('✅ Log Kanalı Başarıyla Güncellendi')
-        .setColor('#57F287')
-        .addFields(
-          { name: '📂 Log Türü', value: `\`${typeLabels[type] || type}\``, inline: true },
-          { name: '📍 Atanan Kanal', value: `${channel} (\`#${channel.name}\`)`, inline: true },
-          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true }
-        )
-        .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-        .setTimestamp();
+        const typeLabels = {
+          mod_log: '🛡️ Genel Moderasyon Logu',
+          join_leave_log: '📥 Giriş-Çıkış Logu',
+          ban_log: '🔨 Ban / Yasaklama Logu',
+          mute_log: '🔇 Mute / Susturma Logu',
+          warn_log: '⚠️ Uyarı Logu'
+        };
 
-      return interaction.reply({ embeds: [embed] });
+        const embed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • Yapılandırma`, iconURL: guildIcon })
+          .setTitle('✅ Log Kanalı Başarıyla Güncellendi')
+          .setColor('#57F287')
+          .addFields(
+            { name: '📂 Log Türü', value: `\`${typeLabels[type] || type}\``, inline: true },
+            { name: '📍 Atanan Kanal', value: `${channel} (\`#${channel.name}\`)`, inline: true },
+            { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true }
+          )
+          .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+          .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
+      }
+
+      if (sub === 'uyari_ayarla') {
+        const w1Role = interaction.options.getRole('1_uyari_rol');
+        const w1To = interaction.options.getInteger('1_to');
+        const w2Role = interaction.options.getRole('2_uyari_rol');
+        const w2To = interaction.options.getInteger('2_to');
+        const w3Role = interaction.options.getRole('3_uyari_rol');
+        const w3To = interaction.options.getInteger('3_to');
+
+        db.prepare(`UPDATE guild_settings SET 
+          warn1_role = ?, warn1_to = ?, 
+          warn2_role = ?, warn2_to = ?, 
+          warn3_role = ?, warn3_to = ? 
+          WHERE guild_id = ?`).run(w1Role.id, w1To, w2Role.id, w2To, w3Role.id, w3To, interaction.guildId);
+
+        const embed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • Uyarı Sistemi Kurulumu`, iconURL: guildIcon })
+          .setTitle('⚙️ Ceza Kademeleri Yapılandırıldı')
+          .setColor('#57F287')
+          .addFields(
+            { name: '⚠️ 1. Kademe', value: `> **Rol:** ${w1Role}\n> **Timeout:** \`${w1To} Dk\``, inline: true },
+            { name: '⚠️ 2. Kademe', value: `> **Rol:** ${w2Role}\n> **Timeout:** \`${w2To} Dk\``, inline: true },
+            { name: '⚠️ 3. Kademe', value: `> **Rol:** ${w3Role}\n> **Timeout:** \`${w3To} Dk\``, inline: true },
+            { name: '🛡️ Düzenleyen Yetkili', value: `${interaction.user}`, inline: false }
+          )
+          .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+          .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
+      }
     }
 
-    if (sub === 'uyari_ayarla') {
-      const w1Role = interaction.options.getRole('1_uyari_rol');
-      const w1To = interaction.options.getInteger('1_to');
-      const w2Role = interaction.options.getRole('2_uyari_rol');
-      const w2To = interaction.options.getInteger('2_to');
-      const w3Role = interaction.options.getRole('3_uyari_rol');
-      const w3To = interaction.options.getInteger('3_to');
-
-      db.prepare(`UPDATE guild_settings SET 
-        warn1_role = ?, warn1_to = ?, 
-        warn2_role = ?, warn2_to = ?, 
-        warn3_role = ?, warn3_to = ? 
-        WHERE guild_id = ?`).run(w1Role.id, w1To, w2Role.id, w2To, w3Role.id, w3To, interaction.guildId);
-
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${interaction.guild.name} • Uyarı Sistemi Kurulumu`, iconURL: guildIcon })
-        .setTitle('⚙️ Ceza Kademeleri Yapılandırıldı')
-        .setColor('#57F287')
-        .addFields(
-          { name: '⚠️ 1. Kademe', value: `> **Rol:** ${w1Role}\n> **Timeout:** \`${w1To} Dk\``, inline: true },
-          { name: '⚠️ 2. Kademe', value: `> **Rol:** ${w2Role}\n> **Timeout:** \`${w2To} Dk\``, inline: true },
-          { name: '⚠️ 3. Kademe', value: `> **Rol:** ${w3Role}\n> **Timeout:** \`${w3To} Dk\``, inline: true },
-          { name: '🛡️ Düzenleyen Yetkili', value: `${interaction.user}`, inline: false }
-        )
-        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed] });
+    if (!checkMod(interaction)) {
+      const noModEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Erişim Reddedildi`, iconURL: guildIcon })
+        .setDescription('❌ Bu moderasyon komutunu kullanmak için **Moderatör** veya **Admin** yetkisine sahip olmalısınız.')
+        .setColor('#ED4245');
+      return interaction.reply({ embeds: [noModEmbed], ephemeral: true });
     }
 
     if (sub === 'uyari_ver') {
@@ -382,4 +391,190 @@ module.exports = {
           { name: '👤 Yasaklanan', value: `${targetUser} (\`${targetUser.tag}\`)`, inline: true },
           { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true },
           { name: '📝 Sebep', value: `>>> ${reason}`, inline: false }
- 
+        )
+        .setFooter({ text: `İşlem Yetkilisi: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      if (proof) replyEmbed.setImage(proof.url);
+      return interaction.reply({ embeds: [replyEmbed] });
+    }
+if (sub === 'idban') {
+      const targetId = interaction.options.getString('id');
+      const reason = interaction.options.getString('sebep');
+      const proof = interaction.options.getAttachment('kanit');
+
+      await interaction.guild.members.ban(targetId, { reason });
+      db.prepare('INSERT OR REPLACE INTO bans VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(interaction.guildId, targetId, 'Bilinmeyen (ID Ban)', interaction.user.id, interaction.user.tag, reason, Date.now());
+
+      const banLogEmbed = new EmbedBuilder()
+        .setAuthor({ name: 'Ceza Günlüğü • Harici ID Ban', iconURL: guildIcon })
+        .setColor('#ED4245')
+        .addFields(
+          { name: '🆔 Yasaklanan ID', value: `\`${targetId}\``, inline: true },
+          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+          { name: '📝 Gerekçe', value: `>>> ${reason}`, inline: false }
+        )
+        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      if (proof) banLogEmbed.setImage(proof.url);
+      await sendLog(interaction.guild, 'ban_log', banLogEmbed);
+
+      const replyEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
+        .setTitle('🔨 ID ile Yasaklama Uygulandı')
+        .setColor('#ED4245')
+        .addFields(
+          { name: '🆔 Kullanıcı ID', value: `\`${targetId}\``, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true },
+          { name: '📝 Sebep', value: `>>> ${reason}`, inline: false }
+        )
+        .setFooter({ text: `İşlem Yetkilisi: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      if (proof) replyEmbed.setImage(proof.url);
+      return interaction.reply({ embeds: [replyEmbed] });
+    }
+
+    if (sub === 'unban') {
+      const targetId = interaction.options.getString('id');
+      await interaction.guild.members.unban(targetId).catch(() => null);
+      db.prepare('DELETE FROM bans WHERE guild_id = ? AND user_id = ?').run(interaction.guildId, targetId);
+
+      const unbanEmbed = new EmbedBuilder()
+        .setAuthor({ name: 'Ceza Günlüğü • Yasak Kaldırma', iconURL: guildIcon })
+        .setColor('#57F287')
+        .addFields(
+          { name: '🆔 Kullanıcı ID', value: `\`${targetId}\``, inline: true },
+          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true }
+        )
+        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      await sendLog(interaction.guild, 'ban_log', unbanEmbed);
+
+      const replyEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
+        .setTitle('🔓 Yasak Başarıyla Kaldırıldı')
+        .setColor('#57F287')
+        .addFields(
+          { name: '🆔 Kullanıcı ID', value: `\`${targetId}\``, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true }
+        )
+        .setFooter({ text: `İşlem Yetkilisi: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [replyEmbed] });
+    }
+
+    if (sub === 'banbilgi') {
+      const targetId = interaction.options.getString('id');
+      const banData = db.prepare('SELECT * FROM bans WHERE guild_id = ? AND user_id = ?').get(interaction.guildId, targetId);
+if (!banData) {
+        const notFoundEmbed = new EmbedBuilder()
+          .setAuthor({ name: `${interaction.guild.name} • Bilgi`, iconURL: guildIcon })
+          .setDescription(`❌ \`${targetId}\` ID'sine ait aktif bir ban kaydı bulunamadı.`)
+          .setColor('#ED4245');
+        return interaction.reply({ embeds: [notFoundEmbed], ephemeral: true });
+      }
+
+      const embed = new EmbedBuilder()
+        .setAuthor({ name: 'Sorgu Paneli • Ban Bilgi Kartı', iconURL: guildIcon })
+        .setColor('#3498DB')
+        .addFields(
+          { name: '🆔 Yasaklanan ID', value: `\`${banData.user_id}\``, inline: true },
+          { name: '👤 Kullanıcı Tagı', value: `\`${banData.user_tag}\``, inline: true },
+          { name: '🛡️ Yasaklayan Yetkili', value: `${banData.moderator_tag} (\`${banData.moderator_id}\`)`, inline: false },
+          { name: '📅 Yasaklanma Tarihi', value: `<t:${Math.floor(banData.date / 1000)}:F>`, inline: false },
+          { name: '📝 Yasaklama Sebebi', value: `>>> ${banData.reason}` }
+        )
+        .setFooter({ text: `Sorgulayan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [embed] });
+    }
+
+    if (sub === 'mute') {
+      const targetUser = interaction.options.getUser('kullanici');
+      const minutes = interaction.options.getInteger('sure');
+      const reason = interaction.options.getString('sebep');
+      const member = await interaction.guild.members.fetch(targetUser.id);
+
+      const muteDmEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Ceza Bildirimi`, iconURL: guildIcon })
+        .setTitle('🔇 Geçici Olarak Susturuldunuz')
+        .setDescription(`Sunucudaki kanallarda mesaj yazma ve sesli kanallara katılma yetkiniz kısıtlanmıştır.`)
+        .setColor('#FFA500')
+        .addFields(
+          { name: '⏳ Susturma Süresi', value: `\`${minutes} Dakika\``, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user.tag}`, inline: true },
+          { name: '📝 Gerekçe', value: `>>> ${reason}`, inline: false }
+        )
+        .setTimestamp();
+
+      await targetUser.send({ embeds: [muteDmEmbed] }).catch(() => {});
+      await member.timeout(minutes * 60 * 1000, reason);
+
+      const muteLogEmbed = new EmbedBuilder()
+        .setAuthor({ name: 'Ceza Günlüğü • Susturma (Mute)', iconURL: guildIcon })
+        .setColor('#FFA500')
+        .addFields(
+          { name: '👤 Susturulan Üye', value: `${targetUser} (\`${targetUser.id}\`)`, inline: true },
+          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+          { name: '⏳ Süre', value: `\`${minutes} Dakika\``, inline: true },
+          { name: '📝 Gerekçe', value: `>>> ${reason}` }
+        )
+        .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      await sendLog(interaction.guild, 'mute_log', muteLogEmbed);
+
+      const replyEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
+        .setTitle('🔇 Kullanıcı Susturuldu')
+        .setColor('#FFA500')
+        .addFields(
+          { name: '👤 Susturulan', value: `${targetUser}`, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true },
+          { name: '⏳ Süre', value: `\`${minutes} Dakika\``, inline: true },
+          { name: '📝 Sebep', value: `>>> ${reason}` }
+        )
+        .setFooter({ text: `İşlem Yetkilisi: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [replyEmbed] });
+    }
+    if (sub === 'unmute') {
+      const targetUser = interaction.options.getUser('kullanici');
+      const member = await interaction.guild.members.fetch(targetUser.id);
+      await member.timeout(null);
+
+      const unmuteEmbed = new EmbedBuilder()
+        .setAuthor({ name: 'Ceza Günlüğü • Susturma Kaldırıldı', iconURL: guildIcon })
+        .setColor('#57F287')
+        .addFields(
+          { name: '👤 Üye', value: `${targetUser} (\`${targetUser.id}\`)`, inline: true },
+          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true }
+        )
+        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      await sendLog(interaction.guild, 'mute_log', unmuteEmbed);
+
+      const replyEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
+        .setTitle('🔊 Susturma Kaldırıldı')
+        .setColor('#57F287')
+        .addFields(
+          { name: '👤 Üye', value: `${targetUser}`, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true }
+        )
+        .setFooter({ text: `İşlem Yetkilisi: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [replyEmbed] });
+    }
+  }
+};

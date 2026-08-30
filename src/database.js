@@ -6,7 +6,8 @@ const db = new Database(path.join(__dirname, '../database.sqlite'));
 db.exec(`
   CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id TEXT PRIMARY KEY,
-    auth_roles TEXT,
+    admin_roles TEXT,
+    mod_roles TEXT,
     mod_log TEXT,
     join_leave_log TEXT,
     welcome_channel TEXT,
@@ -43,9 +44,12 @@ db.exec(`
   );
 `);
 
-try {
-  db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_channel TEXT;");
-} catch (e) {}
+const columnsToAdd = ['admin_roles', 'mod_roles', 'welcome_channel'];
+for (const col of columnsToAdd) {
+  try {
+    db.exec(`ALTER TABLE guild_settings ADD COLUMN ${col} TEXT;`);
+  } catch (e) {}
+}
 
 module.exports = {
   getGuild: (guildId) => db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId) || {},

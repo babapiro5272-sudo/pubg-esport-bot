@@ -1,10 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { checkAuth } = require('../utils/helpers');
+const { checkAdmin } = require('../utils/helpers');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('iletisim')
-    .setDescription('Duyuru ve turnuva organizasyon komutları.')
+    .setDescription('[Admin] Duyuru ve turnuva organizasyon komutları.')
     .addSubcommand(s => s
       .setName('duyuru')
       .setDescription('Etiketli duyuru gönderir.')
@@ -38,9 +38,17 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmaya yetkiniz yok.', ephemeral: true });
-    const sub = interaction.options.getSubcommand();
     const guildIcon = interaction.guild.iconURL({ dynamic: true });
+
+    if (!checkAdmin(interaction)) {
+      const noAdminEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Erişim Reddedildi`, iconURL: guildIcon })
+        .setDescription('❌ Duyuru ve iletişim komutlarını yalnızca **Admin** yetkisine sahip kişiler kullanabilir. Moderatörlerin bu komutları kullanması yasaktır.')
+        .setColor('#ED4245');
+      return interaction.reply({ embeds: [noAdminEmbed], ephemeral: true });
+    }
+
+    const sub = interaction.options.getSubcommand();
 
     if (sub === 'duyuru') {
       const channel = interaction.options.getChannel('kanal');

@@ -1,11 +1,11 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
 const { setGuild } = require('../database');
-const { checkAuth } = require('../utils/helpers');
+const { checkAdmin } = require('../utils/helpers');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('giris_cikis')
-    .setDescription('Üyelerin göreceği resimli giriş-çıkış karşılama kanalını ayarlar.')
+    .setDescription('[Admin] Üyelerin göreceği resimli giriş-çıkış karşılama kanalını ayarlar.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption(o => o
       .setName('kanal')
@@ -15,7 +15,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmaya yetkiniz yok.', ephemeral: true });
+    if (!checkAdmin(interaction)) {
+      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler kullanabilir.', ephemeral: true });
+    }
 
     const channel = interaction.options.getChannel('kanal');
     setGuild(interaction.guildId, 'welcome_channel', channel.id);

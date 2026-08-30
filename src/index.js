@@ -5,7 +5,7 @@ const {
   EmbedBuilder, ButtonBuilder, ButtonStyle, REST, Routes 
 } = require('discord.js');
 const { getGuild, db } = require('./database');
-const { checkAuth } = require('./utils/helpers');
+const { checkMod } = require('./utils/helpers');
 
 const client = new Client({
   intents: [
@@ -20,7 +20,9 @@ const client = new Client({
 
 client.commands = new Collection();
 const commandsList = [
-  require('./commands/admin'),
+  require('./commands/adminRol'),
+  require('./commands/modRol'),
+  require('./commands/yardim'),
   require('./commands/basvuru'),
   require('./commands/moderasyon'),
   require('./commands/duyuru'),
@@ -92,7 +94,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.customId.startsWith('btn_apply_accept_')) {
-      if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
+      if (!checkMod(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_accept_', '');
       const config = getGuild(interaction.guildId);
       const guildIcon = interaction.guild.iconURL({ dynamic: true });
@@ -128,7 +130,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.customId.startsWith('btn_apply_reject_')) {
-      if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
+      if (!checkMod(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_reject_', '');
 
       const modal = new ModalBuilder()

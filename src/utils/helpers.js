@@ -1,13 +1,25 @@
 const { PermissionFlagsBits } = require('discord.js');
 const { getGuild } = require('../database');
 
-function checkAuth(interaction) {
+function checkAdmin(interaction) {
   if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
   const config = getGuild(interaction.guildId);
-  if (!config.auth_roles) return false;
+  if (!config.admin_roles) return false;
   try {
-    const authRoles = JSON.parse(config.auth_roles);
-    return interaction.member.roles.cache.some(r => authRoles.includes(r.id));
+    const adminRoles = JSON.parse(config.admin_roles);
+    return interaction.member.roles.cache.some(r => adminRoles.includes(r.id));
+  } catch {
+    return false;
+  }
+}
+
+function checkMod(interaction) {
+  if (checkAdmin(interaction)) return true;
+  const config = getGuild(interaction.guildId);
+  if (!config.mod_roles) return false;
+  try {
+    const modRoles = JSON.parse(config.mod_roles);
+    return interaction.member.roles.cache.some(r => modRoles.includes(r.id));
   } catch {
     return false;
   }
@@ -27,4 +39,4 @@ async function sendLog(guild, logTypeKey, embed) {
   }
 }
 
-module.exports = { checkAuth, sendLog };
+module.exports = { checkAdmin, checkMod, sendLog };

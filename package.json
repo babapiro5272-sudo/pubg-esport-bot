@@ -1,7 +1,7 @@
 {
   "name": "pubg-esports-bot",
   "version": "1.0.0",
-  "description": "Profesyonel PUBG E-Spor ve Çoklu Sunucu Yönetim Botu",
+  "description": "Profesyonel PUBG E-Spor ve Moderasyon Botu",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js"

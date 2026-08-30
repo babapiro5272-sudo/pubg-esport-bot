@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { setGuild } = require('../database');
-const { checkAuth } = require('../utils/helpers');
+const { checkAdmin } = require('../utils/helpers');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,7 +13,9 @@ module.exports = {
     .addRoleOption(o => o.setName('basvuru-rol').setDescription('Başvuru onaylanınca verilecek oyuncu rolü').setRequired(true)),
 
   async execute(interaction) {
-    if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu komutu kullanmaya yetkiniz yok.', ephemeral: true });
+    if (!checkAdmin(interaction)) {
+      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler kullanabilir.', ephemeral: true });
+    }
 
     const applyChannel = interaction.options.getChannel('basvuru-kanali');
     const logChannel = interaction.options.getChannel('log-kanali');
@@ -39,7 +41,7 @@ module.exports = {
         `• 📈 Genel katkı ve istikrar\n\n` +
         `gibi kriterlere göre değişebilecek. Performans ne kadar yüksekse, ödül de o kadar yüksek olacak!\n\n` +
         `⏳ **Ne Zaman Başlıyoruz?**\n` +
-        `Turnuvaların başlayacağı kesin tarih henüz belli değil. Ancak mevcut tahminlere göre sistemin önümüzdeki 2-3 ay içerisinde, hatta daha kısa bir sürede aktif olması bekleniyor.\n\n` +
+        `Turnuvaların başlayceği kesin tarih henüz belli değil. Ancak mevcut tahminlere göre sistemin önümüzdeki 2-3 ay içerisinde aktif olması bekleniyor.\n\n` +
         `💪 *Eğer kendine güveniyorsan aşağıdaki butona basarak başvurunu yapabilirsin!*`
       )
       .setColor('#FFA500')
