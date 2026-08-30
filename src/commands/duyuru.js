@@ -42,7 +42,6 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
     const guildIcon = interaction.guild.iconURL({ dynamic: true });
 
-    // 1. DUYURU
     if (sub === 'duyuru') {
       const channel = interaction.options.getChannel('kanal');
       const msg = interaction.options.getString('mesaj');
@@ -59,7 +58,6 @@ module.exports = {
       return interaction.reply({ content: `✅ Duyuru ${channel} kanalına başarıyla iletildi.`, ephemeral: true });
     }
 
-    // 2. MESAJ
     if (sub === 'mesaj') {
       const channel = interaction.options.getChannel('kanal');
       const msg = interaction.options.getString('mesaj');
@@ -67,13 +65,11 @@ module.exports = {
       return interaction.reply({ content: '✅ Mesaj gönderildi.', ephemeral: true });
     }
 
-    // 3. ESTETİK DM MESAJI (KİŞİSEL & TOPLU)
     if (sub === 'dm_mesaj') {
       const msg = interaction.options.getString('mesaj');
       const user = interaction.options.getUser('kullanici');
       const isAll = interaction.options.getBoolean('toplu_everyone');
 
-      // A. KİŞİSEL DM
       if (user) {
         const personalDmEmbed = new EmbedBuilder()
           .setAuthor({ name: `${interaction.guild.name} • Özel Yönetim Bildirimi`, iconURL: guildIcon })
@@ -89,7 +85,6 @@ module.exports = {
         return interaction.reply({ content: `✅ ${user} kullanıcısına estetik özel DM kartı iletildi.`, ephemeral: true });
       }
 
-      // B. TOPLU SUNUCU DM
       if (isAll) {
         await interaction.reply({ content: '⏳ Toplu sunucu duyurusu üyelere iletiliyor...', ephemeral: true });
 
@@ -117,7 +112,6 @@ module.exports = {
       return interaction.reply({ content: '❌ Lütfen bir kullanıcı seçin veya `toplu_everyone: True` yapın.', ephemeral: true });
     }
 
-    // 4. TURNUVA DUYURUSU
     if (sub === 'turnuva') {
       const name = interaction.options.getString('ismi');
       const date = interaction.options.getString('zaman');

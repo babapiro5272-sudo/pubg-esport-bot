@@ -43,7 +43,6 @@ db.exec(`
   );
 `);
 
-// Eski veritabanı varsa sütunu otomatik ekle
 try {
   db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_channel TEXT;");
 } catch (e) {}

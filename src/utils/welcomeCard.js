@@ -1,6 +1,5 @@
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 
-// Sayıları kutulu emojilere dönüştürme fonksiyonu
 function formatMemberCount(count) {
   const emojiDigits = {
     '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
@@ -9,7 +8,6 @@ function formatMemberCount(count) {
   return count.toString().split('').map(digit => emojiDigits[digit] || digit).join('');
 }
 
-// Görsel Karşılama Kartını Çizme
 async function createWelcomeCard(member, isJoin = true) {
   const width = 750;
   const height = 280;
@@ -23,7 +21,6 @@ async function createWelcomeCard(member, isJoin = true) {
   const cardHeight = height - padding * 2;
   const radius = 35;
 
-  // Dış Oval Beyaz Çerçeveli Siyah Kutu Çizimi
   ctx.beginPath();
   ctx.moveTo(cardX + radius, cardY);
   ctx.lineTo(cardX + cardWidth - radius, cardY);
@@ -42,7 +39,6 @@ async function createWelcomeCard(member, isJoin = true) {
   ctx.strokeStyle = '#FFFFFF';
   ctx.stroke();
 
-  // Profil Fotoğrafını Yuvarlak Olarak Yerleştirme
   const avatarURL = member.user.displayAvatarURL({ extension: 'png', size: 256 });
   try {
     const avatar = await loadImage(avatarURL);
@@ -58,24 +54,20 @@ async function createWelcomeCard(member, isJoin = true) {
     ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
     ctx.restore();
 
-    // Avatarın etrafına ince beyaz halka
     ctx.beginPath();
     ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2 + 1, 0, Math.PI * 2, true);
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = '#FFFFFF';
     ctx.stroke();
   } catch (err) {
-    console.error('Avatar yüklenemedi:', err);
+    console.error('Avatar çizim hatası:', err);
   }
 
-  // Kullanıcı Adı
   ctx.font = 'bold 32px sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
-  const username = member.user.username;
-  ctx.fillText(username, width / 2, 185);
+  ctx.fillText(member.user.username, width / 2, 185);
 
-  // Alt Açıklama Metni
   ctx.font = '500 20px sans-serif';
   ctx.fillStyle = '#E0E0E0';
   const subtitle = isJoin 

@@ -24,15 +24,13 @@ const commandsList = [
   require('./commands/basvuru'),
   require('./commands/moderasyon'),
   require('./commands/duyuru'),
-  require('./commands/girisCikis') // Yeni Giriş-Çıkış Komutu
+  require('./commands/girisCikis')
 ];
-
 
 for (const cmd of commandsList) {
   client.commands.set(cmd.data.name, cmd);
 }
 
-// Eventleri Başlat
 require('./events/guildAuditLog')(client);
 require('./events/memberLog')(client);
 
@@ -51,7 +49,6 @@ client.once('ready', async () => {
     console.error('Komut kayıt hatası:', err);
   }
 
-  // 3 Günlük Uyarı Otomatik Silme Motoru
   setInterval(() => {
     const now = Date.now();
     const expiredWarns = db.prepare('SELECT * FROM warnings WHERE expire_date <= ?').all(now);
@@ -71,18 +68,14 @@ client.once('ready', async () => {
   }, 10 * 60 * 1000);
 });
 
-// Etkileşim Yöneticisi
 client.on('interactionCreate', async (interaction) => {
-  // 1. SLASH KOMUTLARINI ÇALIŞTIR
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (command) await command.execute(interaction).catch(err => console.error(err));
     return;
   }
 
-  // 2. BUTON ETKİLEŞİMLERİ
   if (interaction.isButton()) {
-    // Formu Aç
     if (interaction.customId === 'btn_open_apply_modal') {
       const modal = new ModalBuilder()
         .setCustomId('modal_apply_form')
@@ -98,7 +91,6 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // Başvuruyu Kabul Et
     if (interaction.customId.startsWith('btn_apply_accept_')) {
       if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_accept_', '');
@@ -110,7 +102,6 @@ client.on('interactionCreate', async (interaction) => {
         await member.roles.add(config.apply_success_role).catch(() => {});
       }
 
-      // OYUNCUYA GİDEN ESTETİK KABUL DM'İ
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
         const acceptDmEmbed = new EmbedBuilder()
@@ -136,7 +127,6 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // Başvuruyu Reddet
     if (interaction.customId.startsWith('btn_apply_reject_')) {
       if (!checkAuth(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_reject_', '');
@@ -158,9 +148,7 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // 3. MODAL FORMLARI YÖNETİCİSİ
   if (interaction.isModalSubmit()) {
-    // Form Doldurulduğunda
     if (interaction.customId === 'modal_apply_form') {
       const config = getGuild(interaction.guildId);
       const logChannelId = config.apply_log_channel;
@@ -206,13 +194,11 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply({ content: '✅ Başvurunuz başarıyla yetkililere iletildi.', ephemeral: true });
     }
 
-    // Reddetme Nedeni Yazıldığında
     if (interaction.customId.startsWith('modal_reject_reason_')) {
       const targetUserId = interaction.customId.replace('modal_reject_reason_', '');
       const reason = interaction.fields.getTextInputValue('reject_reason');
       const guildIcon = interaction.guild.iconURL({ dynamic: true });
 
-      // OYUNCUYA GİDEN ESTETİK RET DM'İ
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
         const rejectDmEmbed = new EmbedBuilder()

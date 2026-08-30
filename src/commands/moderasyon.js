@@ -96,9 +96,6 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
     const config = getGuild(interaction.guildId);
 
-    // ==========================================
-    // 1. LOG KANAL AYARLAMA
-    // ==========================================
     if (sub === 'log_ayarla') {
       const type = interaction.options.getString('tur');
       const channel = interaction.options.getChannel('kanal');
@@ -127,9 +124,6 @@ module.exports = {
       return interaction.reply({ embeds: [embed] });
     }
 
-    // ==========================================
-    // 2. UYARI KADEMELERİ AYARLAMA
-    // ==========================================
     if (sub === 'uyari_ayarla') {
       const w1Role = interaction.options.getRole('1_uyari_rol');
       const w1To = interaction.options.getInteger('1_to');
@@ -160,9 +154,6 @@ module.exports = {
       return interaction.reply({ embeds: [embed] });
     }
 
-    // ==========================================
-    // 3. UYARI VER
-    // ==========================================
     if (sub === 'uyari_ver') {
       const targetUser = interaction.options.getUser('kullanici');
       const reason = interaction.options.getString('sebep') || 'Belirtilmedi';
@@ -201,7 +192,6 @@ module.exports = {
         if (appliedTo > 0) await member.timeout(appliedTo * 60 * 1000, `Uyarı Seviyesi: ${newCount} - ${reason}`).catch(() => {});
       }
 
-      // Kullanıcıya DM
       const warnDmEmbed = new EmbedBuilder()
         .setAuthor({ name: `${interaction.guild.name} • Ceza Bildirimi`, iconURL: guildIcon })
         .setTitle('⚠️ Bir Uyarı Cezası Aldınız')
@@ -218,7 +208,6 @@ module.exports = {
 
       await targetUser.send({ embeds: [warnDmEmbed] }).catch(() => {});
 
-      // Log Embed
       const warnLogEmbed = new EmbedBuilder()
         .setAuthor({ name: 'Ceza Kaydı • Uyarı Eklendi', iconURL: guildIcon })
         .setColor('#FFA500')
@@ -235,7 +224,6 @@ module.exports = {
 
       await sendLog(interaction.guild, 'warn_log', warnLogEmbed);
 
-      // Kanala Yanıt Kartı
       const replyEmbed = new EmbedBuilder()
         .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
         .setTitle('⚠️ Kullanıcıya Uyarı Eklendi')
@@ -252,9 +240,6 @@ module.exports = {
       return interaction.reply({ embeds: [replyEmbed] });
     }
 
-    // ==========================================
-    // 4. UYARI AL (LOGLU & DM'Lİ)
-    // ==========================================
     if (sub === 'uyari_al') {
       const targetUser = interaction.options.getUser('kullanici');
       const count = interaction.options.getInteger('sayi');
@@ -284,7 +269,6 @@ module.exports = {
         db.prepare('UPDATE warnings SET warn_count = ? WHERE guild_id = ? AND user_id = ?').run(newCount, interaction.guildId, targetUser.id);
       }
 
-      // Kullanıcıya DM
       const warnRemoveDmEmbed = new EmbedBuilder()
         .setAuthor({ name: `${interaction.guild.name} • Ceza Güncellemesi`, iconURL: guildIcon })
         .setTitle('🛡️ Uyarınız Silindi')
@@ -300,7 +284,6 @@ module.exports = {
 
       await targetUser.send({ embeds: [warnRemoveDmEmbed] }).catch(() => {});
 
-      // Log Kanalına Düşen Kart
       const warnRemoveLogEmbed = new EmbedBuilder()
         .setAuthor({ name: 'Ceza Kaydı • Uyarı Silme İşlemi', iconURL: guildIcon })
         .setColor('#57F287')
@@ -316,7 +299,6 @@ module.exports = {
 
       await sendLog(interaction.guild, 'warn_log', warnRemoveLogEmbed);
 
-      // Kanala Yanıt Kartı
       const replyEmbed = new EmbedBuilder()
         .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
         .setTitle('✅ Kullanıcıdan Uyarı Düşüldü')
@@ -333,9 +315,6 @@ module.exports = {
       return interaction.reply({ embeds: [replyEmbed] });
     }
 
-    // ==========================================
-    // 5. UYARI LİSTE
-    // ==========================================
     if (sub === 'uyari_liste') {
       const list = db.prepare('SELECT * FROM warnings WHERE guild_id = ?').all(interaction.guildId);
       if (list.length === 0) {
@@ -358,9 +337,6 @@ module.exports = {
       return interaction.reply({ embeds: [embed] });
     }
 
-    // ==========================================
-    // 6. BAN
-    // ==========================================
     if (sub === 'ban') {
       const targetUser = interaction.options.getUser('kullanici');
       const reason = interaction.options.getString('sebep');
@@ -388,4 +364,22 @@ module.exports = {
         .setColor('#ED4245')
         .addFields(
           { name: '👤 Yasaklanan Üye', value: `${targetUser} (\`${targetUser.id}\`)`, inline: true },
-          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true 
+          { name: '🛡️ İşlemi Yapan Yetkili', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+          { name: '📝 Gerekçe', value: `>>> ${reason}`, inline: false }
+        )
+        .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setTimestamp();
+
+      if (proof) banLogEmbed.setImage(proof.url);
+      await sendLog(interaction.guild, 'ban_log', banLogEmbed);
+
+      const replyEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${interaction.guild.name} • Moderasyon`, iconURL: guildIcon })
+        .setTitle('🔨 Kullanıcı Sunucudan Yasaklandı')
+        .setColor('#ED4245')
+        .addFields(
+          { name: '👤 Yasaklanan', value: `${targetUser} (\`${targetUser.tag}\`)`, inline: true },
+          { name: '🛡️ Yetkili', value: `${interaction.user}`, inline: true },
+          { name: '📝 Sebep', value: `>>> ${reason}`, inline: false }
+ 
