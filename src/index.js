@@ -39,7 +39,6 @@ require('./events/memberLog')(client);
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`🚀 ${c.user.tag} aktif edildi!`);
-
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   const commandData = commandsList.map(cmd => cmd.data.toJSON());
 
@@ -59,24 +58,6 @@ client.once(Events.ClientReady, async (c) => {
   } catch (err) {
     console.error('Komut kayıt hatası:', err);
   }
-
-  setInterval(() => {
-    const now = Date.now();
-    const expiredWarns = db.prepare('SELECT * FROM warnings WHERE expire_date <= ?').all(now);
-
-    for (const w of expiredWarns) {
-      db.prepare('DELETE FROM warnings WHERE id = ?').run(w.id);
-      const guild = client.guilds.cache.get(w.guild_id);
-      if (guild) {
-        guild.members.fetch(w.user_id).then(member => {
-          const config = getGuild(w.guild_id);
-          if (config.warn1_role) member.roles.remove(config.warn1_role).catch(() => {});
-          if (config.warn2_role) member.roles.remove(config.warn2_role).catch(() => {});
-          if (config.warn3_role) member.roles.remove(config.warn3_role).catch(() => {});
-        }).catch(() => {});
-      }
-    }
-  }, 10 * 60 * 1000);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -88,7 +69,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await command.execute(interaction);
     } catch (err) {
       console.error('Komut Hatası:', err);
-      const errorMsg = `❌ Komut çalıştırılırken bir hata oluştu: \`${err.message}\``;
+      const errorMsg = `❌ Komut Hatası: \`${err.message}\``;
       if (interaction.deferred || interaction.replied) {
         await interaction.editReply({ content: errorMsg }).catch(() => {});
       } else {

@@ -44,7 +44,6 @@ db.exec(`
   );
 `);
 
-// Eksik sütunları güvenle ekle
 const requiredCols = [
   'admin_roles', 'mod_roles', 'welcome_channel', 'mod_log', 
   'join_leave_log', 'ban_log', 'mute_log', 'warn_log', 
