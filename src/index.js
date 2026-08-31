@@ -20,6 +20,7 @@ const client = new Client({
 
 client.commands = new Collection();
 const commandsList = [
+  require('./commands/senkronize'),
   require('./commands/adminRol'),
   require('./commands/modRol'),
   require('./commands/yardim'),
@@ -40,17 +41,28 @@ client.once('clientReady', async () => {
   console.log(`🚀 ${client.user.tag} aktif edildi!`);
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+  const commandData = commandsList.map(c => c.data.toJSON());
+
   try {
-    console.log('Slash komutları kaydediliyor...');
+    // 1. Sunucularda anında belirmesi için Guild seviyesinde hızlı kayıt (0 sn gecikme)
+    for (const guild of client.guilds.cache.values()) {
+      await rest.put(
+        Routes.applicationGuildCommands(client.user.id, guild.id),
+        { body: commandData }
+      ).catch(() => {});
+    }
+
+    // 2. Global kayıt
     await rest.put(
       Routes.applicationCommands(client.user.id),
-      { body: commandsList.map(c => c.data.toJSON()) }
+      { body: commandData }
     );
-    console.log('✅ Global slash komutları kaydedildi.');
+    console.log('✅ Tüm komutlar sunuculara ve globale başarıyla eşitlendi.');
   } catch (err) {
     console.error('Komut kayıt hatası:', err);
   }
 
+  // 3 Günlük Uyarı Otomatik Silme Motoru
   setInterval(() => {
     const now = Date.now();
     const expiredWarns = db.prepare('SELECT * FROM warnings WHERE expire_date <= ?').all(now);

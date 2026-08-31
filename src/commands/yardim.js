@@ -31,6 +31,8 @@ module.exports = {
         {
           name: '👑 YÖNETİCİ & KURULUM KOMUTLARI [Admin]',
           value:
+            '**`/senkronize`**\n' +
+            '> Tüm slash komutlarını anında Discord API ile eşitler, önbelleği temizler ve optimize eder.\n\n' +
             '**`/admin_rol rol_1: (rol_2:) (rol_3:)`**\n' +
             '> Tüm bot ayarlarını ve komutlarını yönetebilecek en üst yetkili rollerini tanımlar.\n\n' +
             '**`/mod_rol rol_1: (rol_2:) (rol_3:)`**\n' +

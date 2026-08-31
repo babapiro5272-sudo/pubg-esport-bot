@@ -5,7 +5,7 @@ const { checkAdmin } = require('../utils/helpers');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('mod_rol')
-    .setDescription('Sadece ceza işlemlerini (Ban, Mute, Uyarı) yapabilecek Moderatör rollerini ayarlar.')
+    .setDescription('[Admin] Sadece ceza işlemlerini (Ban, Mute, Uyarı) yapabilecek Moderatör rollerini ayarlar.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addRoleOption(o => o.setName('rol_1').setDescription('1. Moderatör Rolü').setRequired(true))
     .addRoleOption(o => o.setName('rol_2').setDescription('2. Moderatör Rolü'))
@@ -13,7 +13,10 @@ module.exports = {
 
   async execute(interaction) {
     if (!checkAdmin(interaction)) {
-      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler kullanabilir.', ephemeral: true });
+      return interaction.reply({ 
+        content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler kullanabilir.', 
+        ephemeral: true 
+      });
     }
 
     const roles = ['rol_1', 'rol_2', 'rol_3']
@@ -25,7 +28,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setAuthor({ name: `${interaction.guild.name} • Yetki Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
       .setTitle('🛡️ Moderatör Rolleri Tanımlandı')
-      .setDescription(`Aşağıdaki rollere sahip üyeler **Ban, Mute, Uyarı** işlemlerini yapabilir.\n*(Log ayarlama, başvuru ve duyuru komutlarına erişimleri kısıtlanmıştır)*:\n\n${roles.map(r => `> ⚔️ <@&${r}>`).join('\n')}`)
+      .setDescription(`Aşağıdaki rollere sahip üyeler **Ban, Mute, Uyarı** işlemlerini yapabilir.\n*(Log ayarlama, başvuru, duyuru ve senkronizasyon yetkileri kısıtlanmıştır)*:\n\n${roles.map(r => `> ⚔️ <@&${r}>`).join('\n')}`)
       .setColor('#5865F2')
       .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
       .setTimestamp();
