@@ -38,7 +38,7 @@ require('./events/guildAuditLog')(client);
 require('./events/memberLog')(client);
 
 client.once('clientReady', async () => {
-  console.log(`🚀 ${client.user.tag} aktif edildi!`);
+
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   const commandData = commandsList.map(c => c.data.toJSON());
