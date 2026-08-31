@@ -2,10 +2,10 @@ require('dotenv').config();
 const { 
   Client, GatewayIntentBits, Partials, Collection, 
   ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, 
-  EmbedBuilder, ButtonBuilder, ButtonStyle, REST, Routes 
+  EmbedBuilder, ButtonBuilder, ButtonStyle, REST, Routes, Events 
 } = require('discord.js');
 const { getGuild, db } = require('./database');
-const { checkMod } = require('./utils/helpers');
+const { checkAdmin, checkMod } = require('./utils/helpers');
 
 const client = new Client({
   intents: [
@@ -37,32 +37,33 @@ for (const cmd of commandsList) {
 require('./events/guildAuditLog')(client);
 require('./events/memberLog')(client);
 
-client.once('clientReady', async () => {
-
+// Bot Hazır Olduğunda Çalışacak Kod
+client.once(Events.ClientReady, async (c) => {
+  console.log(`🚀 ${c.user.tag} aktif edildi!`);
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-  const commandData = commandsList.map(c => c.data.toJSON());
+  const commandData = commandsList.map(cmd => cmd.data.toJSON());
 
   try {
-    // 1. Sunucularda anında belirmesi için Guild seviyesinde hızlı kayıt (0 sn gecikme)
+    console.log('Komutlar sunuculara yükleniyor...');
     for (const guild of client.guilds.cache.values()) {
       await rest.put(
-        Routes.applicationGuildCommands(client.user.id, guild.id),
+        Routes.applicationGuildCommands(c.user.id, guild.id),
         { body: commandData }
-      ).catch(() => {});
+      );
+      console.log(`✅ ${guild.name} sunucusuna komutlar yüklendi.`);
     }
 
-    // 2. Global kayıt
     await rest.put(
-      Routes.applicationCommands(client.user.id),
+      Routes.applicationCommands(c.user.id),
       { body: commandData }
     );
-    console.log('✅ Tüm komutlar sunuculara ve globale başarıyla eşitlendi.');
+    console.log('✅ Global slash komutları kaydedildi.');
   } catch (err) {
     console.error('Komut kayıt hatası:', err);
   }
 
-  // 3 Günlük Uyarı Otomatik Silme Motoru
+  // 3 Günlük Uyarı Silme Döngüsü
   setInterval(() => {
     const now = Date.now();
     const expiredWarns = db.prepare('SELECT * FROM warnings WHERE expire_date <= ?').all(now);
@@ -82,7 +83,35 @@ client.once('clientReady', async () => {
   }, 10 * 60 * 1000);
 });
 
-client.on('interactionCreate', async (interaction) => {
+// Metin Tabanlı Acil Kurulum Komutu (!kur)
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot || !message.guild) return;
+
+  if (message.content === '!kur' || message.content === '!senkronize') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply('❌ Bu komutu sadece Sunucu Yöneticileri kullanabilir.');
+    }
+
+    const statusMsg = await message.reply('⏳ Komutlar bu sunucuya doğrudan yükleniyor, lütfen bekleyin...');
+    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+    const commandData = commandsList.map(cmd => cmd.data.toJSON());
+
+    try {
+      await rest.put(
+        Routes.applicationGuildCommands(client.user.id, message.guild.id),
+        { body: commandData }
+      );
+
+      await statusMsg.edit('✅ **Tüm slash komutları başarıyla bu sunucuya yüklendi!** Artık `/yardim`, `/admin_rol`, `/mod_rol` yazarak kullanabilirsiniz.');
+    } catch (err) {
+      console.error(err);
+      await statusMsg.edit(`❌ Komutlar yüklenirken hata oluştu:\n\`${err.message}\``);
+    }
+  }
+});
+
+// Slash ve Modal Etkileşimleri
+client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (command) await command.execute(interaction).catch(err => console.error(err));
