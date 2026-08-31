@@ -15,26 +15,21 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    try {
-      if (!checkAdmin(interaction)) {
-        return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.', ephemeral: true });
-      }
-
-      const channel = interaction.options.getChannel('kanal');
-      setGuild(interaction.guildId, 'welcome_channel', channel.id);
-
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${interaction.guild.name} • Karşılama Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
-        .setTitle('✅ Giriş-Çıkış Kanalı Ayarlandı')
-        .setDescription(`Sunucuya yeni katılan ve ayrılan üyeler için resimli bildirimler artık ${channel} kanalına gönderilecektir.`)
-        .setColor('#57F287')
-        .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed] });
-    } catch (err) {
-      console.error(err);
-      return interaction.reply({ content: '❌ Komut çalıştırılırken bir hata oluştu: ' + err.message, ephemeral: true }).catch(() => {});
+    if (!checkAdmin(interaction)) {
+      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.', ephemeral: true });
     }
+
+    const channel = interaction.options.getChannel('kanal');
+    setGuild(interaction.guildId, 'welcome_channel', channel.id);
+
+    const embed = new EmbedBuilder()
+      .setAuthor({ name: `${interaction.guild.name} • Karşılama Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
+      .setTitle('✅ Giriş-Çıkış Kanalı Ayarlandı')
+      .setDescription(`Sunucuya yeni katılan ve ayrılan üyeler için resimli bildirimler artık ${channel} kanalına gönderilecektir.`)
+      .setColor('#57F287')
+      .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setTimestamp();
+
+    return interaction.reply({ embeds: [embed] });
   }
 };

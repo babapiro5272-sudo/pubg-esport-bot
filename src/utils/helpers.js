@@ -3,13 +3,10 @@ const { getGuild } = require('../database');
 
 function checkAdmin(interaction) {
   if (!interaction.guild) return false;
-  // 1. Sunucu Sahibi her zaman tam yetkilidir
   if (interaction.guild.ownerId === interaction.user.id) return true;
-  // 2. Discord Administrator Yetkisi
   if (interaction.memberPermissions && interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return true;
   if (interaction.member && interaction.member.permissions && interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
   
-  // 3. /admin_rol ile atanmış roller
   const config = getGuild(interaction.guildId);
   if (!config || !config.admin_roles) return false;
   try {

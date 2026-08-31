@@ -44,18 +44,16 @@ db.exec(`
   );
 `);
 
-// Eksik kalabilecek tüm kolonları güvenle ekleme
 const requiredCols = ['admin_roles', 'mod_roles', 'welcome_channel', 'mod_log', 'join_leave_log', 'ban_log', 'mute_log', 'warn_log', 'apply_channel', 'apply_log_channel', 'apply_tag_role', 'apply_success_role'];
-const tableInfo = db.prepare("PRAGMA table_info(guild_settings)").all();
-const existingCols = tableInfo.map(c => c.name);
-
-for (const col of requiredCols) {
-  if (!existingCols.includes(col)) {
-    try {
-      db.exec(`ALTER TABLE guild_settings ADD COLUMN ${col} TEXT;`);
-    } catch (e) {}
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(guild_settings)").all();
+  const existingCols = tableInfo.map(c => c.name);
+  for (const col of requiredCols) {
+    if (!existingCols.includes(col)) {
+      try { db.exec(`ALTER TABLE guild_settings ADD COLUMN ${col} TEXT;`); } catch (e) {}
+    }
   }
-}
+} catch (e) {}
 
 module.exports = {
   getGuild: (guildId) => {
@@ -74,7 +72,7 @@ module.exports = {
         db.prepare(`UPDATE guild_settings SET ${field} = ? WHERE guild_id = ?`).run(value, guildId);
       }
     } catch (e) {
-      console.error('Veritabanı yazma hatası:', e);
+      console.error('DB Hatası:', e);
     }
   },
   db

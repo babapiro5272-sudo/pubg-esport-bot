@@ -25,13 +25,11 @@ module.exports = {
     const commandData = client.commands.map(cmd => cmd.data.toJSON());
 
     try {
-      // 1. Mevcut sunucuya doğrudan ve anında kayıt (0 saniye bekleme)
       await rest.put(
         Routes.applicationGuildCommands(client.user.id, interaction.guildId),
         { body: commandData }
       );
 
-      // 2. Global Discord API kaydı
       await rest.put(
         Routes.applicationCommands(client.user.id),
         { body: commandData }
