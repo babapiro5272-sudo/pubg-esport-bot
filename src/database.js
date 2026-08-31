@@ -44,21 +44,37 @@ db.exec(`
   );
 `);
 
-const columnsToAdd = ['admin_roles', 'mod_roles', 'welcome_channel'];
-for (const col of columnsToAdd) {
-  try {
-    db.exec(`ALTER TABLE guild_settings ADD COLUMN ${col} TEXT;`);
-  } catch (e) {}
+// Eksik kalabilecek tüm kolonları güvenle ekleme
+const requiredCols = ['admin_roles', 'mod_roles', 'welcome_channel', 'mod_log', 'join_leave_log', 'ban_log', 'mute_log', 'warn_log', 'apply_channel', 'apply_log_channel', 'apply_tag_role', 'apply_success_role'];
+const tableInfo = db.prepare("PRAGMA table_info(guild_settings)").all();
+const existingCols = tableInfo.map(c => c.name);
+
+for (const col of requiredCols) {
+  if (!existingCols.includes(col)) {
+    try {
+      db.exec(`ALTER TABLE guild_settings ADD COLUMN ${col} TEXT;`);
+    } catch (e) {}
+  }
 }
 
 module.exports = {
-  getGuild: (guildId) => db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId) || {},
+  getGuild: (guildId) => {
+    try {
+      return db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId) || {};
+    } catch (e) {
+      return {};
+    }
+  },
   setGuild: (guildId, field, value) => {
-    const exists = db.prepare('SELECT guild_id FROM guild_settings WHERE guild_id = ?').get(guildId);
-    if (!exists) {
-      db.prepare(`INSERT INTO guild_settings (guild_id, ${field}) VALUES (?, ?)`).run(guildId, value);
-    } else {
-      db.prepare(`UPDATE guild_settings SET ${field} = ? WHERE guild_id = ?`).run(value, guildId);
+    try {
+      const exists = db.prepare('SELECT guild_id FROM guild_settings WHERE guild_id = ?').get(guildId);
+      if (!exists) {
+        db.prepare(`INSERT INTO guild_settings (guild_id, ${field}) VALUES (?, ?)`).run(guildId, value);
+      } else {
+        db.prepare(`UPDATE guild_settings SET ${field} = ? WHERE guild_id = ?`).run(value, guildId);
+      }
+    } catch (e) {
+      console.error('Veritabanı yazma hatası:', e);
     }
   },
   db
