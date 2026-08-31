@@ -12,8 +12,10 @@ module.exports = {
     .addRoleOption(o => o.setName('rol_3').setDescription('3. Admin Rolü')),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     if (!checkAdmin(interaction)) {
-      return interaction.reply({ content: '❌ Bu komutu sadece mevcut Yöneticiler veya Sunucu Sahibi kullanabilir.', ephemeral: true });
+      return interaction.editReply({ content: '❌ Bu komutu sadece mevcut Yöneticiler veya Sunucu Sahibi kullanabilir.' });
     }
 
     const roles = ['rol_1', 'rol_2', 'rol_3']
@@ -22,14 +24,17 @@ module.exports = {
 
     setGuild(interaction.guildId, 'admin_roles', JSON.stringify(roles));
 
+    const icon = interaction.guild.iconURL() || undefined;
+    const userAvatar = interaction.user.displayAvatarURL() || undefined;
+
     const embed = new EmbedBuilder()
-      .setAuthor({ name: `${interaction.guild.name} • Yetki Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
+      .setAuthor({ name: `${interaction.guild.name} • Yetki Sistemi`, iconURL: icon })
       .setTitle('👑 Admin Rolleri Tanımlandı')
       .setDescription(`Aşağıdaki rollere sahip üyeler botun **tüm yönetim, log, başvuru, duyuru ve optimizasyon** komutlarını kullanabilir:\n\n${roles.map(r => `> 🛡️ <@&${r}>`).join('\n')}`)
       .setColor('#FFA500')
-      .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: userAvatar })
       .setTimestamp();
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
   }
 };

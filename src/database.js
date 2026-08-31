@@ -44,7 +44,13 @@ db.exec(`
   );
 `);
 
-const requiredCols = ['admin_roles', 'mod_roles', 'welcome_channel', 'mod_log', 'join_leave_log', 'ban_log', 'mute_log', 'warn_log', 'apply_channel', 'apply_log_channel', 'apply_tag_role', 'apply_success_role'];
+// Eksik sütunları güvenle ekle
+const requiredCols = [
+  'admin_roles', 'mod_roles', 'welcome_channel', 'mod_log', 
+  'join_leave_log', 'ban_log', 'mute_log', 'warn_log', 
+  'apply_channel', 'apply_log_channel', 'apply_tag_role', 'apply_success_role'
+];
+
 try {
   const tableInfo = db.prepare("PRAGMA table_info(guild_settings)").all();
   const existingCols = tableInfo.map(c => c.name);

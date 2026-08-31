@@ -4,18 +4,15 @@ const { getGuild } = require('../database');
 function checkAdmin(interaction) {
   if (!interaction.guild) return false;
   if (interaction.guild.ownerId === interaction.user.id) return true;
-  if (interaction.memberPermissions && interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return true;
-  if (interaction.member && interaction.member.permissions && interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+  if (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) return true;
+  if (interaction.member?.permissions?.has(PermissionFlagsBits.Administrator)) return true;
   
   const config = getGuild(interaction.guildId);
   if (!config || !config.admin_roles) return false;
   try {
     const adminRoles = JSON.parse(config.admin_roles);
-    if (interaction.member.roles && interaction.member.roles.cache) {
+    if (interaction.member?.roles?.cache) {
       return interaction.member.roles.cache.some(r => adminRoles.includes(r.id));
-    }
-    if (Array.isArray(interaction.member.roles)) {
-      return interaction.member.roles.some(r => adminRoles.includes(r));
     }
   } catch (e) {
     return false;
@@ -29,11 +26,8 @@ function checkMod(interaction) {
   if (!config || !config.mod_roles) return false;
   try {
     const modRoles = JSON.parse(config.mod_roles);
-    if (interaction.member.roles && interaction.member.roles.cache) {
+    if (interaction.member?.roles?.cache) {
       return interaction.member.roles.cache.some(r => modRoles.includes(r.id));
-    }
-    if (Array.isArray(interaction.member.roles)) {
-      return interaction.member.roles.some(r => modRoles.includes(r));
     }
   } catch (e) {
     return false;

@@ -15,21 +15,26 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     if (!checkAdmin(interaction)) {
-      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.', ephemeral: true });
+      return interaction.editReply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.' });
     }
 
     const channel = interaction.options.getChannel('kanal');
     setGuild(interaction.guildId, 'welcome_channel', channel.id);
 
+    const icon = interaction.guild.iconURL() || undefined;
+    const userAvatar = interaction.user.displayAvatarURL() || undefined;
+
     const embed = new EmbedBuilder()
-      .setAuthor({ name: `${interaction.guild.name} • Karşılama Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
+      .setAuthor({ name: `${interaction.guild.name} • Karşılama Sistemi`, iconURL: icon })
       .setTitle('✅ Giriş-Çıkış Kanalı Ayarlandı')
       .setDescription(`Sunucuya yeni katılan ve ayrılan üyeler için resimli bildirimler artık ${channel} kanalına gönderilecektir.`)
       .setColor('#57F287')
-      .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setFooter({ text: `Yetkili: ${interaction.user.tag}`, iconURL: userAvatar })
       .setTimestamp();
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
   }
 };

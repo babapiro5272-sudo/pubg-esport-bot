@@ -44,7 +44,6 @@ client.once(Events.ClientReady, async (c) => {
   const commandData = commandsList.map(cmd => cmd.data.toJSON());
 
   try {
-    // 1. Önce eski/çakışan sunucu içi komutları temizle
     for (const guild of client.guilds.cache.values()) {
       await rest.put(
         Routes.applicationGuildCommands(c.user.id, guild.id),
@@ -52,12 +51,11 @@ client.once(Events.ClientReady, async (c) => {
       ).catch(() => {});
     }
 
-    // 2. Global olarak temiz ve tek liste yükle
     await rest.put(
       Routes.applicationCommands(c.user.id),
       { body: commandData }
     );
-    console.log('✅ TÜM KOMUTLAR DISCORD GLOBALE YAZILDI.');
+    console.log('✅ TÜM KOMUTLAR DISCORD GLOBALE BAŞARIYLA YAZILDI.');
   } catch (err) {
     console.error('Komut kayıt hatası:', err);
   }
@@ -84,12 +82,19 @@ client.once(Events.ClientReady, async (c) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
-    if (command) await command.execute(interaction).catch(err => {
-      console.error(err);
-      if (!interaction.replied && !interaction.deferred) {
-        interaction.reply({ content: '❌ Bir hata oluştu: ' + err.message, ephemeral: true }).catch(() => {});
+    if (!command) return;
+
+    try {
+      await command.execute(interaction);
+    } catch (err) {
+      console.error('Komut Hatası:', err);
+      const errorMsg = `❌ Komut çalıştırılırken bir hata oluştu: \`${err.message}\``;
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: errorMsg }).catch(() => {});
+      } else {
+        await interaction.reply({ content: errorMsg, ephemeral: true }).catch(() => {});
       }
-    });
+    }
     return;
   }
 
@@ -113,7 +118,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!checkMod(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
       const targetUserId = interaction.customId.replace('btn_apply_accept_', '');
       const config = getGuild(interaction.guildId);
-      const guildIcon = interaction.guild.iconURL({ dynamic: true });
+      const icon = interaction.guild.iconURL() || undefined;
 
       const member = await interaction.guild.members.fetch(targetUserId).catch(() => null);
       if (member && config.apply_success_role) {
@@ -123,7 +128,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
         const acceptDmEmbed = new EmbedBuilder()
-          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: guildIcon })
+          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: icon })
           .setTitle('🎉 Tebrikler! Başvurunuz Onaylandı')
           .setDescription(`Yapılan değerlendirmeler sonucunda **${interaction.guild.name}** PUBG E-Spor kadromuza kabul edildiniz!`)
           .setColor('#57F287')
@@ -184,7 +189,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!logChannel) return interaction.reply({ content: '❌ Log kanalı bulunamadı.', ephemeral: true });
 
       const embed = new EmbedBuilder()
-        .setAuthor({ name: 'Yeni Oyuncu Başvuru Formu', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+        .setAuthor({ name: 'Yeni Oyuncu Başvuru Formu', iconURL: interaction.user.displayAvatarURL() || undefined })
         .setTitle(`📋 ${interaction.user.tag} Başvurusu`)
         .setColor('#FFA500')
         .addFields(
@@ -195,7 +200,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           { name: '🎯 Aim Puanı', value: `\`${aim}\``, inline: true },
           { name: '📜 Kural Onayı', value: `\`${rules}\``, inline: true }
         )
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+        .setThumbnail(interaction.user.displayAvatarURL() || null)
         .setTimestamp();
 
       const row = new ActionRowBuilder().addComponents(
@@ -215,12 +220,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId.startsWith('modal_reject_reason_')) {
       const targetUserId = interaction.customId.replace('modal_reject_reason_', '');
       const reason = interaction.fields.getTextInputValue('reject_reason');
-      const guildIcon = interaction.guild.iconURL({ dynamic: true });
+      const icon = interaction.guild.iconURL() || undefined;
 
       const targetUser = await client.users.fetch(targetUserId).catch(() => null);
       if (targetUser) {
         const rejectDmEmbed = new EmbedBuilder()
-          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: guildIcon })
+          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: icon })
           .setTitle('❌ Başvuru Durumu: Reddedildi')
           .setDescription(`**${interaction.guild.name}** PUBG E-Spor takımına yapmış olduğunuz başvuru ne yazık ki olumsuz sonuçlanmıştır.`)
           .setColor('#ED4245')

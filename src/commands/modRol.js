@@ -12,8 +12,10 @@ module.exports = {
     .addRoleOption(o => o.setName('rol_3').setDescription('3. Moderatör Rolü')),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
     if (!checkAdmin(interaction)) {
-      return interaction.reply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.', ephemeral: true });
+      return interaction.editReply({ content: '❌ Bu komutu sadece Admin yetkisine sahip kişiler veya Sunucu Sahibi kullanabilir.' });
     }
 
     const roles = ['rol_1', 'rol_2', 'rol_3']
@@ -22,14 +24,17 @@ module.exports = {
 
     setGuild(interaction.guildId, 'mod_roles', JSON.stringify(roles));
 
+    const icon = interaction.guild.iconURL() || undefined;
+    const userAvatar = interaction.user.displayAvatarURL() || undefined;
+
     const embed = new EmbedBuilder()
-      .setAuthor({ name: `${interaction.guild.name} • Yetki Sistemi`, iconURL: interaction.guild.iconURL({ dynamic: true }) })
+      .setAuthor({ name: `${interaction.guild.name} • Yetki Sistemi`, iconURL: icon })
       .setTitle('🛡️ Moderatör Rolleri Tanımlandı')
       .setDescription(`Aşağıdaki rollere sahip üyeler **Ban, Mute, Uyarı** işlemlerini yapabilir.\n*(Log ayarlama, başvuru, duyuru ve senkronizasyon yetkileri kısıtlanmıştır)*:\n\n${roles.map(r => `> ⚔️ <@&${r}>`).join('\n')}`)
       .setColor('#5865F2')
-      .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setFooter({ text: `İşlemi Yapan: ${interaction.user.tag}`, iconURL: userAvatar })
       .setTimestamp();
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
   }
 };
