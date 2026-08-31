@@ -19,7 +19,9 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-const commandsList = [
+
+// Komutları yükle
+const commandFiles = [
   require('./commands/senkronize'),
   require('./commands/adminRol'),
   require('./commands/modRol'),
@@ -30,19 +32,29 @@ const commandsList = [
   require('./commands/girisCikis')
 ];
 
-for (const cmd of commandsList) {
-  client.commands.set(cmd.data.name, cmd);
+for (const cmd of commandFiles) {
+  if (cmd?.data?.name) {
+    client.commands.set(cmd.data.name, cmd);
+  }
 }
 
-require('./events/guildAuditLog')(client);
-require('./events/memberLog')(client);
+// Eventleri yükle
+try {
+  require('./events/guildAuditLog')(client);
+  require('./events/memberLog')(client);
+} catch (e) {
+  console.log('Event yükleme uyarısı:', e.message);
+}
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`🚀 ${c.user.tag} aktif edildi!`);
+  console.log(`🚀 ${c.user.tag} başarıyla bağlandı!`);
+  console.log(`📦 Yüklenen Komutlar: ${[...client.commands.keys()].join(', ')}`);
+
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-  const commandData = commandsList.map(cmd => cmd.data.toJSON());
+  const commandData = commandFiles.map(cmd => cmd.data.toJSON());
 
   try {
+    // 1. Sunucu bazlı eski çakışmaları temizle
     for (const guild of client.guilds.cache.values()) {
       await rest.put(
         Routes.applicationGuildCommands(c.user.id, guild.id),
@@ -50,182 +62,47 @@ client.once(Events.ClientReady, async (c) => {
       ).catch(() => {});
     }
 
+    // 2. Global komut listesini doğrudan yaz
     await rest.put(
       Routes.applicationCommands(c.user.id),
       { body: commandData }
     );
-    console.log('✅ TÜM KOMUTLAR DISCORD GLOBALE BAŞARIYLA YAZILDI.');
+    console.log('✅ Tüm slash komutları Discord API üzerine başarıyla mühürlendi.');
   } catch (err) {
     console.error('Komut kayıt hatası:', err);
   }
 });
 
+// TÜM ETKİLEŞİMLERİ YAKALAYAN ANA MOTOR
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
+  if (!interaction.isChatInputCommand()) return;
 
-    try {
-      await command.execute(interaction);
-    } catch (err) {
-      console.error('Komut Hatası:', err);
-      const errorMsg = `❌ Komut Hatası: \`${err.message}\``;
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content: errorMsg }).catch(() => {});
-      } else {
-        await interaction.reply({ content: errorMsg, ephemeral: true }).catch(() => {});
-      }
-    }
-    return;
+  const commandName = interaction.commandName;
+  const command = client.commands.get(commandName);
+
+  console.log(`⚡ Gelen Komut: /${commandName} | Gönderen: ${interaction.user.tag}`);
+
+  if (!command) {
+    console.error(`❌ Komut koleksiyonda bulunamadı: /${commandName}`);
+    return interaction.reply({
+      content: `❌ \`/${commandName}\` komutu bot hafızasında bulunamadı. Lütfen \`/senkronize\` yazarak komutları yenileyin.`,
+      ephemeral: true
+    }).catch(() => {});
   }
 
-  if (interaction.isButton()) {
-    if (interaction.customId === 'btn_open_apply_modal') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_apply_form')
-        .setTitle('PUBG E-Spor Takım Başvurusu');
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_name').setLabel('İsminiz ve Soyisminiz').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_age').setLabel('Yaşınız').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_pubgid').setLabel('PUBG ID / Nickname').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_aim').setLabel('Aim Seviyeniz (10/?)').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('q_rules').setLabel('Cezai işlemleri kabul ediyor musunuz?').setStyle(TextInputStyle.Short).setPlaceholder('Kabul ediyorum / etmiyorum').setRequired(true))
-      );
-      return interaction.showModal(modal);
-    }
-
-    if (interaction.customId.startsWith('btn_apply_accept_')) {
-      if (!checkMod(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
-      const targetUserId = interaction.customId.replace('btn_apply_accept_', '');
-      const config = getGuild(interaction.guildId);
-      const icon = interaction.guild.iconURL() || undefined;
-
-      const member = await interaction.guild.members.fetch(targetUserId).catch(() => null);
-      if (member && config.apply_success_role) {
-        await member.roles.add(config.apply_success_role).catch(() => {});
-      }
-
-      const targetUser = await client.users.fetch(targetUserId).catch(() => null);
-      if (targetUser) {
-        const acceptDmEmbed = new EmbedBuilder()
-          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: icon })
-          .setTitle('🎉 Tebrikler! Başvurunuz Onaylandı')
-          .setDescription(`Yapılan değerlendirmeler sonucunda **${interaction.guild.name}** PUBG E-Spor kadromuza kabul edildiniz!`)
-          .setColor('#57F287')
-          .addFields(
-            { name: '🎖️ Kazanılan Rol', value: config.apply_success_role ? `<@&${config.apply_success_role}>` : 'Oyuncu Rolü', inline: true },
-            { name: '🛡️ Onaylayan Yetkili', value: `${interaction.user.tag}`, inline: true },
-            { name: '📌 Sıradaki Adım', value: '>>> Sunucudaki takım antrenman ve scrim duyurularını takip etmeyi unutmayın. Başarılar dileriz!' }
-          )
-          .setFooter({ text: 'PUBG E-Sports Team Recruitment' })
-          .setTimestamp();
-
-        await targetUser.send({ embeds: [acceptDmEmbed] }).catch(() => {});
-      }
-
-      await interaction.update({
-        content: `✅ Başvuru **${interaction.user.tag}** tarafından **KABUL EDİLDİ**.`,
-        components: []
-      });
-      return;
-    }
-
-    if (interaction.customId.startsWith('btn_apply_reject_')) {
-      if (!checkMod(interaction)) return interaction.reply({ content: '❌ Bu işlemi yapmaya yetkiniz yok.', ephemeral: true });
-      const targetUserId = interaction.customId.replace('btn_apply_reject_', '');
-
-      const modal = new ModalBuilder()
-        .setCustomId(`modal_reject_reason_${targetUserId}`)
-        .setTitle('Başvuru Reddetme Sebebi');
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId('reject_reason')
-            .setLabel('Reddetme Sebebi (Zorunlu)')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-        )
-      );
-      return interaction.showModal(modal);
-    }
-  }
-
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'modal_apply_form') {
-      const config = getGuild(interaction.guildId);
-      const logChannelId = config.apply_log_channel;
-      const tagRoleId = config.apply_tag_role;
-
-      if (!logChannelId) return interaction.reply({ content: '❌ Başvuru log kanalı ayarlanmamış.', ephemeral: true });
-
-      const name = interaction.fields.getTextInputValue('q_name');
-      const age = interaction.fields.getTextInputValue('q_age');
-      const pubgId = interaction.fields.getTextInputValue('q_pubgid');
-      const aim = interaction.fields.getTextInputValue('q_aim');
-      const rules = interaction.fields.getTextInputValue('q_rules');
-
-      const logChannel = interaction.guild.channels.cache.get(logChannelId);
-      if (!logChannel) return interaction.reply({ content: '❌ Log kanalı bulunamadı.', ephemeral: true });
-
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: 'Yeni Oyuncu Başvuru Formu', iconURL: interaction.user.displayAvatarURL() || undefined })
-        .setTitle(`📋 ${interaction.user.tag} Başvurusu`)
-        .setColor('#FFA500')
-        .addFields(
-          { name: '👤 Başvuran', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
-          { name: '📛 İsim Soyisim', value: `\`${name}\``, inline: true },
-          { name: '🎂 Yaş', value: `\`${age}\``, inline: true },
-          { name: '🎮 PUBG ID', value: `\`${pubgId}\``, inline: true },
-          { name: '🎯 Aim Puanı', value: `\`${aim}\``, inline: true },
-          { name: '📜 Kural Onayı', value: `\`${rules}\``, inline: true }
-        )
-        .setThumbnail(interaction.user.displayAvatarURL() || null)
-        .setTimestamp();
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`btn_apply_accept_${interaction.user.id}`).setLabel('Kabul Et').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`btn_apply_reject_${interaction.user.id}`).setLabel('Reddet').setStyle(ButtonStyle.Danger)
-      );
-
-      await logChannel.send({
-        content: tagRoleId ? `<@&${tagRoleId}> Yeni başvuru geldi!` : undefined,
-        embeds: [embed],
-        components: [row]
-      });
-
-      return interaction.reply({ content: '✅ Başvurunuz başarıyla yetkililere iletildi.', ephemeral: true });
-    }
-
-    if (interaction.customId.startsWith('modal_reject_reason_')) {
-      const targetUserId = interaction.customId.replace('modal_reject_reason_', '');
-      const reason = interaction.fields.getTextInputValue('reject_reason');
-      const icon = interaction.guild.iconURL() || undefined;
-
-      const targetUser = await client.users.fetch(targetUserId).catch(() => null);
-      if (targetUser) {
-        const rejectDmEmbed = new EmbedBuilder()
-          .setAuthor({ name: `${interaction.guild.name} • E-Spor Akademisi`, iconURL: icon })
-          .setTitle('❌ Başvuru Durumu: Reddedildi')
-          .setDescription(`**${interaction.guild.name}** PUBG E-Spor takımına yapmış olduğunuz başvuru ne yazık ki olumsuz sonuçlanmıştır.`)
-          .setColor('#ED4245')
-          .addFields(
-            { name: '📝 Reddedilme Gerekçesi', value: `>>> ${reason}` },
-            { name: '💡 Tavsiye', value: 'Kendinizi geliştirip sonraki alım dönemlerimizde tekrar başvurabilirsiniz.' }
-          )
-          .setFooter({ text: 'PUBG E-Sports Team Recruitment' })
-          .setTimestamp();
-
-        await targetUser.send({ embeds: [rejectDmEmbed] }).catch(() => {});
-      }
-
-      await interaction.update({
-        content: `❌ Başvuru **${interaction.user.tag}** tarafından **REDDEDİLDİ**.\n**Sebep:** ${reason}`,
-        components: []
-      });
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(`❌ /${commandName} çalışırken hata verdi:`, error);
+    const errText = `❌ Komut çalıştırılırken bir sistem hatası oluştu:\n\`\`\`js\n${error.message}\n\`\`\``;
+    
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: errText }).catch(() => {});
+    } else {
+      await interaction.reply({ content: errText, ephemeral: true }).catch(() => {});
     }
   }
 });
 
 client.login(process.env.TOKEN);
+
